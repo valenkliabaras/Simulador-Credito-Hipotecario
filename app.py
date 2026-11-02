@@ -237,7 +237,7 @@ def buscar_opciones(ingreso_mensual_ars: float, ahorro_usd: float, zona: str = "
 def responder_asesor(mensaje, historial):
     """
     Responde un mensaje del chat.
-    'historial' son los mensajes anteriores (Gradio los manda solo): cada uno es un
+    'historial' son los mensajes anteriores (en la app los guarda Streamlit): cada uno es un
     diccionario con "role" (user o assistant) y "content" (el texto).
     La IA puede usar la función buscar_opciones() cuando tiene el ingreso y el ahorro de la persona.
     Si Gemini no responde (sin clave, sin internet, límite gratuito), devuelve los datos en texto.
@@ -303,10 +303,11 @@ def guardar_consulta(resultado):
 
 st.title("🏠 Simulador de Crédito Hipotecario UVA")
 
-tab_simulador, tab_chat = st.tabs(["Simulador", "Asesor IA (chat)"])
+tab_simulador, tab_chat, tab_panel = st.tabs(["Simulador", "Asesor IA (chat)", "Panel de consultas"])
 
 # ---------- PESTAÑA 1: SIMULADOR ----------
 with tab_simulador:
+    st.caption("Las consultas se guardan con fines académicos. Podés usar un nombre ficticio.")
     st.write("Completá tus datos para saber si te conviene tomar el crédito hoy y qué banco te conviene.")
 
     col1, col2 = st.columns(2)
@@ -398,3 +399,47 @@ with tab_chat:
         # Guardamos los dos mensajes en el historial
         st.session_state.mensajes.append({"role": "user", "content": pregunta})
         st.session_state.mensajes.append({"role": "assistant", "content": respuesta})
+
+# ---------- PESTAÑA 3: PANEL DE CONSULTAS (solo para mí, con contraseña) ----------
+with tab_panel:
+    # La contraseña NO va escrita en el código: se guarda como "Secret" en Streamlit Cloud
+    try:
+        PANEL_PASSWORD = st.secrets["PANEL_PASSWORD"]
+    except Exception:
+        PANEL_PASSWORD = os.environ.get("PANEL_PASSWORD")
+
+    if not PANEL_PASSWORD:
+        st.info("El panel no está configurado todavía (falta el Secret PANEL_PASSWORD).")
+    else:
+        clave = st.text_input("Contraseña del panel", type="password")
+
+        if clave != PANEL_PASSWORD:
+            st.write("Ingresá la contraseña para ver las consultas guardadas.")
+        elif not os.path.exists(ARCHIVO_CONSULTAS):
+            st.info("Todavía no hay consultas guardadas.")
+        else:
+            df = pd.read_csv(ARCHIVO_CONSULTAS)
+
+            # Indicadores principales
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Consultas totales", len(df))
+            col2.metric("Edad promedio", f"{df['edad'].mean():.1f} años")
+            col3.metric("% VIABLE", f"{(df['resultado'] == 'VIABLE').mean() * 100:.0f}%")
+
+            # Gráficos con value_counts(), igual que en el notebook
+            st.subheader("Consultas por zona")
+            st.bar_chart(df["zona"].value_counts())
+
+            st.subheader("Resultados")
+            st.bar_chart(df["resultado"].value_counts())
+
+            st.subheader("Últimas consultas")
+            st.dataframe(df.tail(20))
+
+            # Botón para bajar todo el historial y llevarlo a Excel o Power BI
+            st.download_button(
+                "Descargar todas las consultas (CSV)",
+                data=df.to_csv(index=False),
+                file_name="consultas_hipotecario.csv",
+                mime="text/csv",
+            )
