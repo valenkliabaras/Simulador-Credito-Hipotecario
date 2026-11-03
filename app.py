@@ -92,7 +92,7 @@ def comparar_bancos(precio_usd, ahorro_usd, ingreso_mensual_ars, tipo_de_cambio)
         filas.append({
             "banco": nombre_banco,
             "tasa_anual": condiciones["tasa_anual"],
-            "plazo_anios": condiciones["plazo_meses"] // 12,
+            "plazo_años": condiciones["plazo_meses"] // 12,
             "ahorro_minimo_usd": round(ahorro_minimo, 2),
             "cuota_mensual_ars": None if cuota is None else round(cuota, 2),
             "ratio_cuota_ingreso": None if ratio is None else round(ratio, 2),
